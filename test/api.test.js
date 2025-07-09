@@ -167,4 +167,17 @@ describe('User Login test', ()=>{
     })
 })
 
+describe('User Logout test', ()=>{
+  it('should return 200 Success', (done)=>{
+    request(app)
+      .get('/users/logout')
+      .expect(200)
+      .end((err, res)=>{
+        if(err) return done(err);
+        assert.strictEqual(res.body.message, "Logout Successfully")
+        done()
+      })
+  })
+})
+
 
