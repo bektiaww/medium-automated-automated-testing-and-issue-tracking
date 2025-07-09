@@ -25,12 +25,12 @@ jobs:
       run: npm ci # Use npm ci for clean installs in CI environments
 
     - name: Run tests
-      id: run_tests # Give this step an ID to reference its outcome
+      id: runtests # Give this step an ID to reference its outcome
       run: NODE_ENV="test" npx mocha 
       continue-on-error: true # Allow the workflow to continue even if tests fail
 
     - name: Create issue on test failure
-      if: steps.run-tests.outcome == 'failure' # Only run if the 'run_tests' step failed
+      if: steps.runtests.outcome == 'failure' # Only run if the 'run_tests' step failed
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GH_TOKEN }}
