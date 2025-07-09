@@ -27,3 +27,59 @@ jobs:
     - name: Run tests
       id: run_tests # Give this step an ID to reference its outcome
       run: NODE_ENV="test" npx mocha 
+      continue-on-error: true # Allow the workflow to continue even if tests fail
+
+    - name: Create issue on test failure
+      if: steps.run-tests.outcome == 'failure' # Only run if the 'run_tests' step failed
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GH_TOKEN }}
+        script: |
+          const { owner, repo } = context.repo;
+          const runId = context.runId;
+          const workflowName = context.workflow;
+          const sha = context.sha;
+          const branch = context.ref.split('/').pop();
+          const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+
+          const issueTitle = `❌ Automated Test Failure in ${workflowName} on ${branch} branch`;
+          const issueBody = `
+          Automated tests failed for commit \`${sha}\` on branch \`${branch}\`.
+
+          **Workflow Run:** [${workflowName} #${runId}](${workflowRunUrl})
+
+          Please investigate the failing tests.
+          `;
+
+          try {
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: ['bug', 'automated-test-failure'] // Optional: Add labels
+            });
+
+            const existingIssue = issues.find(issue => issue.title.includes('Automated Test Failure') && issue.state === 'open');
+
+            if (existingIssue) {
+              console.log('An existing issue for automated test failure is already open. Updating it...');
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existingIssue.number,
+                body: `Another test failure occurred:\n\n${issueBody}`
+              });
+            } else {
+              console.log('Creating a new issue for automated test failure...');
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['bug', 'automated-test-failure'] // Optional: Add labels
+              });
+            }
+          } catch (error) {
+            console.error('Error creating or updating GitHub issue:', error);
+            core.setFailed(`Failed to create or update GitHub issue: ${error.message}`);
+          }
